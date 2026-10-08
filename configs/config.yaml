@@ -1,0 +1,64 @@
+# ============================================================
+#  Insurance QLoRA fine-tuning — single config for every script
+#  Change values here instead of editing code.
+# ============================================================
+
+project_name: insurance-qlora
+
+# ---------- Base model ----------
+# 7B fits on a free Colab/Kaggle T4 (16 GB) in 4-bit.
+# For a fast smoke test use: Qwen/Qwen2.5-1.5B-Instruct
+base_model: Qwen/Qwen2.5-7B-Instruct
+
+# ---------- Data ----------
+data:
+  hf_dataset: deccan-ai/insuranceQA-v2   # columns: input (question), output (answer)
+  processed_dir: data/processed
+  max_train_samples: 5000     # keep training short on free GPUs; set null for all
+  max_eval_samples: 300
+  max_test_samples: 200
+  min_answer_words: 25        # drop very short / low-effort answers
+  max_answer_words: 350       # drop very long answers (saves memory)
+  system_prompt: >-
+    You are a helpful, accurate insurance assistant. Explain insurance
+    concepts clearly and simply. If the answer depends on the policy,
+    state, or country, say so.
+
+# ---------- QLoRA (4-bit quantization) ----------
+quantization:
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_use_double_quant: true
+
+# ---------- LoRA adapters ----------
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+# ---------- Training ----------
+training:
+  output_dir: outputs/insurance-qlora-adapter
+  num_train_epochs: 1
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8      # effective batch = 2 x 8 = 16
+  learning_rate: 2.0e-4
+  lr_scheduler_type: cosine
+  warmup_ratio: 0.03
+  max_seq_length: 1024
+  logging_steps: 10
+  eval_steps: 100
+  save_steps: 100
+  seed: 42
+  report_to: none                     # set to "wandb" if you use Weights & Biases
+
+# ---------- Evaluation ----------
+eval:
+  num_samples: 50
+  max_new_tokens: 256
+  results_dir: outputs/eval
+
+# ---------- Publishing (optional) ----------
+hub:
+  adapter_repo: your-hf-username/qwen2.5-7b-insurance-qlora
